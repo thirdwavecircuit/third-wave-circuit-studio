@@ -1,0 +1,138 @@
+{
+  "current_scene": "ISO: Display 2 + Camera",
+  "current_program_scene": "ISO: Display 2 + Camera",
+  "scene_order": [
+    { "name": "ISO: Display 2 + Camera" },
+    { "name": "ISO: Display 1 + Camera" },
+    { "name": "ISO: Both Monitors (Display 1 + Display 2)" }
+  ],
+  "name": "ThirdWaveCircuit",
+  "DesktopAudioDevice1": {
+    "id": "wasapi_output_capture",
+    "name": "Desktop Audio",
+    "settings": { "device_id": "default" },
+    "mixers": 5,
+    "volume": 1.0,
+    "muted": false
+  },
+  "AuxAudioDevice1": {
+    "id": "wasapi_input_capture",
+    "name": "Mic/Aux",
+    "settings": { "device_id": "default" },
+    "mixers": 3,
+    "volume": 1.0,
+    "muted": false,
+    "filters": [
+      {
+        "id": "noise_suppress_filter_v2",
+        "name": "1. RNNoise Suppression",
+        "enabled": true,
+        "settings": { "method": "rnnoise" }
+      },
+      {
+        "id": "compressor_filter",
+        "name": "2. Voice Compressor (3.5:1)",
+        "enabled": true,
+        "settings": {
+          "ratio": 3.5,
+          "threshold": -18.0,
+          "attack_time": 6,
+          "release_time": 60,
+          "output_gain": 2.0
+        }
+      },
+      {
+        "id": "limiter_filter",
+        "name": "3. Peak Limiter (-1.0 dB)",
+        "enabled": true,
+        "settings": {
+          "threshold": -1.0,
+          "release_time": 60
+        }
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "monitor_capture",
+      "name": "Display 1 (1920x1080)",
+      "settings": { "monitor": 0, "capture_cursor": true }
+    },
+    {
+      "id": "monitor_capture",
+      "name": "Display 2 (2560x1440)",
+      "settings": { "monitor": 1, "capture_cursor": true }
+    },
+    {
+      "id": "dshow_input",
+      "name": "Camera",
+      "settings": { "active": true }
+    },
+    {
+      "id": "scene",
+      "name": "ISO: Display 2 + Camera",
+      "settings": {
+        "items": [
+          {
+            "name": "Display 2 (2560x1440)",
+            "visible": true,
+            "pos": { "x": 0.0, "y": 0.0 },
+            "bounds_type": 2,
+            "bounds": { "x": 1920.0, "y": 1080.0 }
+          },
+          {
+            "name": "Camera",
+            "visible": true,
+            "pos": { "x": 1920.0, "y": 0.0 },
+            "bounds_type": 2,
+            "bounds": { "x": 1920.0, "y": 1080.0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene",
+      "name": "ISO: Display 1 + Camera",
+      "settings": {
+        "items": [
+          {
+            "name": "Display 1 (1920x1080)",
+            "visible": true,
+            "pos": { "x": 0.0, "y": 0.0 },
+            "bounds_type": 2,
+            "bounds": { "x": 1920.0, "y": 1080.0 }
+          },
+          {
+            "name": "Camera",
+            "visible": true,
+            "pos": { "x": 1920.0, "y": 0.0 },
+            "bounds_type": 2,
+            "bounds": { "x": 1920.0, "y": 1080.0 }
+          }
+        ]
+      }
+    },
+    {
+      "id": "scene",
+      "name": "ISO: Both Monitors (Display 1 + Display 2)",
+      "settings": {
+        "items": [
+          {
+            "name": "Display 1 (1920x1080)",
+            "visible": true,
+            "pos": { "x": 0.0, "y": 0.0 },
+            "bounds_type": 2,
+            "bounds": { "x": 1920.0, "y": 1080.0 }
+          },
+          {
+            "name": "Display 2 (2560x1440)",
+            "visible": true,
+            "pos": { "x": 1920.0, "y": 0.0 },
+            "bounds_type": 2,
+            "bounds": { "x": 1920.0, "y": 1080.0 }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -59,6 +59,32 @@ def detect_gpu_encoder() -> str:
     return "obs_x264"
 
 
+def get_windows_monitor_interface_id(device_name: str) -> str:
+    """Queries Win32 EnumDisplayDevicesW with EDD_GET_DEVICE_INTERFACE_NAME (0x1)
+    to retrieve the exact \\?\DISPLAY#... monitor_id string required by OBS 30+."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class DISPLAY_DEVICEW(ctypes.Structure):
+            _fields_ = [
+                ("cb", wintypes.DWORD),
+                ("DeviceName", wintypes.WCHAR * 32),
+                ("DeviceString", wintypes.WCHAR * 128),
+                ("StateFlags", wintypes.DWORD),
+                ("DeviceID", wintypes.WCHAR * 128),
+                ("DeviceKey", wintypes.WCHAR * 128),
+            ]
+
+        dd = DISPLAY_DEVICEW()
+        dd.cb = ctypes.sizeof(dd)
+        if hasattr(ctypes, "windll") and ctypes.windll.user32.EnumDisplayDevicesW(device_name, 0, ctypes.byref(dd), 1):
+            return dd.DeviceID
+    except Exception:
+        pass
+    return ""
+
+
 def detect_displays() -> list:
     system = platform.system()
     displays = []
@@ -77,9 +103,11 @@ def detect_displays() -> list:
             for idx, line in enumerate(out.strip().splitlines()):
                 parts = line.strip().split("|")
                 if len(parts) == 4:
+                    dev_name = parts[0]
                     displays.append({
                         "index": idx,
-                        "device": parts[0],
+                        "device": dev_name,
+                        "monitor_id": get_windows_monitor_interface_id(dev_name),
                         "primary": parts[1].lower() == "true",
                         "width": int(parts[2]),
                         "height": int(parts[3]),
@@ -91,6 +119,7 @@ def detect_displays() -> list:
         displays.append({
             "index": 0,
             "device": "Display 1",
+            "monitor_id": "",
             "primary": True,
             "width": 1920,
             "height": 1080,
@@ -116,13 +145,17 @@ def build_scenes_json(profile_name: str, displays: list) -> dict:
         idx = d["index"]
         w, h = d["width"], d["height"]
         src_name = f"Display {idx + 1} ({w}x{h})"
+        mon_settings = {
+            "monitor": idx,
+            "capture_cursor": True,
+        }
+        if d.get("monitor_id"):
+            mon_settings["monitor_id"] = d["monitor_id"]
+
         sources.append({
             "id": "monitor_capture",
             "name": src_name,
-            "settings": {
-                "monitor": idx,
-                "capture_cursor": True,
-            },
+            "settings": mon_settings,
         })
 
         scene_name = f"ISO: Display {idx + 1} ({w}x{h}) + Camera"

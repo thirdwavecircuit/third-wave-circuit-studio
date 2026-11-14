@@ -42,12 +42,21 @@ def create_synthetic_wav(path: Path, sample_rate: int = 16000, segments=((1.0, T
 
 class TestStudioPipeline(unittest.TestCase):
     def test_build_scenes_single_and_dual_monitors(self):
-        single = [{"index": 0, "device": "D1", "primary": True, "width": 1920, "height": 1080}]
+        single = [{
+            "index": 0,
+            "device": "D1",
+            "monitor_id": "\\\\?\\DISPLAY#TEST#123",
+            "primary": True,
+            "width": 1920,
+            "height": 1080,
+        }]
         scenes_1 = configure_studio.build_scenes_json("TestProf", single)
         self.assertEqual(len(scenes_1["scene_order"]), 1)
         self.assertEqual(scenes_1["DesktopAudioDevice1"]["mixers"], 5)  # Track 1 + Track 3
         self.assertEqual(scenes_1["AuxAudioDevice1"]["mixers"], 3)      # Track 1 + Track 2
         self.assertEqual(len(scenes_1["AuxAudioDevice1"]["filters"]), 3)
+        mon_src = [s for s in scenes_1["sources"] if s["id"] == "monitor_capture"][0]
+        self.assertEqual(mon_src["settings"]["monitor_id"], "\\\\?\\DISPLAY#TEST#123")
 
         dual = [
             {"index": 0, "device": "D1", "primary": True, "width": 1920, "height": 1080},

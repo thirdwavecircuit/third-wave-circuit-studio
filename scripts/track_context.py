@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 """
-Synchronized Window, Monitor & Cursor Telemetry Logger (`track_context.py`)
+Synchronized Window, Cursor & Highlight Marker Telemetry Logger (`track_context.py`)
 
 Runs alongside OBS recordings to log a 10Hz JSONL sidecar (`*_telemetry.jsonl`) containing:
-  - Exact timestamp (ms since start + wall-clock ISO timestamp)
-  - Mouse cursor coordinates (x, y)
-  - Active/focused window bounding box (left, top, width, height)
-  - Active window title & process ID
-
-Why this matters:
-  Instead of having to crop to a single window/tab BEFORE recording (and losing context when you
-  alt-tab), you record your full display(s) and use this sidecar data later to:
-  1. Auto-crop or smoothly zoom into the active window/tab or cursor position (Screen Studio style)
-  2. Automatically switch between Monitor 1 and Monitor 2 based on where your cursor/focus is
-  3. Auto-detect or blur timestamps where sensitive window titles (e.g. .env, passwords, messages) appear
+  - Exact timestamp (`t_ms` since start + wall-clock UTC ISO timestamp)
+  - Mouse cursor coordinates (`x`, `y`) & click state (`left_click`, `right_click`)
+  - Active/focused window bounding box (`x`, `y`, `w`, `h`) & window title
+  - Global Hotkey Markers:
+      * F9  -> Logs a "HIGHLIGHT" marker (great take, cool bug, key moment)
+      * F10 -> Logs a "SECTION" marker (new step / chapter transition)
 """
 
 import argparse
@@ -38,6 +33,16 @@ class RECT(ctypes.Structure):
 
 
 user32 = ctypes.windll.user32
+
+# Windows Virtual Key Codes
+VK_LBUTTON = 0x01
+VK_RBUTTON = 0x02
+VK_F9 = 0x78
+VK_F10 = 0x79
+
+
+def is_key_down(vk_code: int) -> bool:
+    return bool(user32.GetAsyncKeyState(vk_code) & 0x8000)
 
 
 def get_cursor_pos():
@@ -79,8 +84,14 @@ def get_active_window_info():
 def record_telemetry(output_path: str, hz: float = 10.0):
     interval = 1.0 / hz
     start_monotonic = time.monotonic()
-    print(f"Recording window & cursor telemetry ({hz} Hz) -> {output_path}")
+    print(f"Recording window, cursor & marker telemetry ({hz} Hz) -> {output_path}")
+    print("Hotkeys active while recording:")
+    print("  [F9]  -> Drop a HIGHLIGHT marker")
+    print("  [F10] -> Drop a SECTION / CHAPTER marker")
     print("Press Ctrl+C to stop.")
+
+    f9_was_down = False
+    f10_was_down = False
 
     with open(output_path, "w", encoding="utf-8") as f:
         try:
@@ -90,11 +101,31 @@ def record_telemetry(output_path: str, hz: float = 10.0):
                 cx, cy = get_cursor_pos()
                 win = get_active_window_info()
 
+                f9_down = is_key_down(VK_F9)
+                f10_down = is_key_down(VK_F10)
+
+                marker = None
+                if f9_down and not f9_was_down:
+                    marker = "HIGHLIGHT"
+                    print(f"  ⭐ [{elapsed_ms / 1000:.1f}s] Marked HIGHLIGHT (F9)")
+                elif f10_down and not f10_was_down:
+                    marker = "SECTION"
+                    print(f"  📌 [{elapsed_ms / 1000:.1f}s] Marked SECTION (F10)")
+
+                f9_was_down = f9_down
+                f10_was_down = f10_down
+
                 event = {
                     "t_ms": elapsed_ms,
                     "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                    "cursor": {"x": cx, "y": cy},
+                    "cursor": {
+                        "x": cx,
+                        "y": cy,
+                        "lmb": is_key_down(VK_LBUTTON),
+                        "rmb": is_key_down(VK_RBUTTON),
+                    },
                     "window": win,
+                    "marker": marker,
                 }
                 f.write(json.dumps(event) + "\n")
                 f.flush()
@@ -107,7 +138,7 @@ def record_telemetry(output_path: str, hz: float = 10.0):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Log active window bounds & cursor coordinates for video post-processing")
+    parser = argparse.ArgumentParser(description="Log active window bounds, cursor & F9/F10 markers")
     parser.add_argument(
         "--out",
         default=f"session_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_telemetry.jsonl",

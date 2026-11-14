@@ -1,0 +1,23 @@
+# Ignore raw video/audio media files
+*.mkv
+*.mp4
+*.mov
+*.wav
+*.aac
+*.flv
+00_Inbox_Raw/
+raw/
+timelapses/
+
+# Ignore API credentials & OAuth tokens
+client_secrets.json
+token.json
+*.pem
+.env
+.tokens/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

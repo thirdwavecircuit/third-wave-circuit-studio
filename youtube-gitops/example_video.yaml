@@ -1,0 +1,30 @@
+# Declarative YouTube Video Manifest (GitOps)
+video_id: "" # Populated after initial upload
+title: "How I Built My Own Digital Avatar From Scratch"
+category_id: "28" # 28 = Science & Technology
+privacy_status: "unlisted" # private | unlisted | public
+made_for_kids: false
+thumbnail: "assets/thumbnail.png"
+
+chapters:
+  - time: "00:00"
+    title: "Why I'm Building My Own Avatar"
+  - time: "01:30"
+    title: "Designing & Drawing the Layers"
+  - time: "04:45"
+    title: "Rigging, Audio Reactivity & Expressions"
+  - time: "08:15"
+    title: "Live Test & Channel Setup"
+
+tags:
+  - "creative tech"
+  - "digital avatar"
+  - "third wave circuit"
+  - "automation"
+  - "maker"
+
+description_body: |
+  Building the digital avatar and visual identity for Third Wave Circuit from scratch.
+
+  🔗 Code & Open-Source Studio Stack:
+  https://github.com/thirdwavecircuit/third-wave-circuit-studio

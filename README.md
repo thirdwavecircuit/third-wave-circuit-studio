@@ -8,6 +8,9 @@
 
 ```text
 third-wave-circuit-studio/
+├── .agents/skills/studio-bootstrap/     # Agent Skill: auto-detects GPU/monitors & configures OBS via CLI
+│   ├── SKILL.md
+│   └── scripts/configure_studio.py
 ├── docs/
 │   └── FILMING_AND_EDITING_PLAYBOOK.md  # Audio (-14 LUFS), 1440p VP09 trick, pacing & free tools
 ├── obs-profile/                         # Portable OBS profile (3840x1080 ISO canvas, Hybrid MP4, NVENC CQP 18)
@@ -29,6 +32,21 @@ third-wave-circuit-studio/
 ├── LICENSE                              # MIT License
 └── requirements.txt
 ```
+
+---
+
+## 🤖 0. One-Command Agent / CLI Bootstrap (Any Computer)
+
+This repository includes an **Agent Skill** (`.agents/skills/studio-bootstrap/`) and a zero-hardcoding hardware discovery script that inspects your OS, GPU encoder (`NVENC`, `AMF`, `QSV`, `VideoToolbox`, or `x264`), and connected display resolutions to generate your OBS Studio profile and scene collection automatically:
+
+```bash
+python .agents/skills/studio-bootstrap/scripts/configure_studio.py
+```
+
+If you open this repository with an AI coding agent (Antigravity, Claude Code, Cursor), you can simply ask your agent:
+> *"Set up my OBS recording profile for 60fps and put recordings in D:\Recordings"*
+
+and it will use the `studio-bootstrap` skill to configure everything via CLI.
 
 ---
 

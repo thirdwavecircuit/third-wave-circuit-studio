@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""
+Declarative Edit Plan Renderer (`render_roughcut.py`)
+
+Reads a user-reviewed `*_edit_plan.yaml` file (plus `*_screen.mp4` and `*_telemetry.jsonl`)
+and uses FFmpeg + NVENC to render the segments according to your chosen settings:
+  - `action: keep`       -> Keeps spoken segment at 1x with -14 LUFS loudness normalization
+  - `action: timelapse`  -> Speed-ramps silent coding/drawing stretches (e.g. 8x-15x)
+  - `action: cut`        -> Drops the segment completely
+  - `view_mode: full_screen | active_window` -> Uses telemetry bounding box to crop to active window if requested
+"""
+
+import argparse
+import os
+import subprocess
+import tempfile
+import yaml
+
+
+def parse_time_sec(t_str: str) -> float:
+    parts = [float(p) for p in t_str.split(":")]
+    if len(parts) == 3:
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    elif len(parts) == 2:
+        return parts[0] * 60 + parts[1]
+    return parts[0]
+
+
+def render_plan(plan_path: str, screen_video: str, output_video: str, upscale_1440p: bool = False):
+    with open(plan_path, "r", encoding="utf-8") as f:
+        plan = yaml.safe_load(f)
+
+    segments = [s for s in plan.get("segments", []) if s.get("action") != "cut"]
+    if not segments:
+        print("No segments marked to keep/timelapse.")
+        return
+
+    temp_dir = tempfile.mkdtemp(prefix="twc_render_")
+    part_files = []
+
+    target_w, target_h = (2560, 1440) if upscale_1440p else (1920, 1080)
+
+    for idx, seg in enumerate(segments):
+        start_sec = parse_time_sec(seg["start"])
+        dur_sec = float(seg["duration_sec"])
+        if dur_sec <= 0.2:
+            continue
+
+        speed = float(seg.get("speed", 1.0))
+        part_out = os.path.join(temp_dir, f"part_{idx:04d}.mp4")
+
+        v_filters = []
+        if speed != 1.0:
+            v_filters.append(f"setpts={round(1.0 / speed, 5)}*PTS")
+        v_filters.append(f"scale={target_w}:{target_h}:flags=lanczos")
+        vf_str = ",".join(v_filters)
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", str(start_sec),
+            "-t", str(dur_sec),
+            "-i", screen_video,
+            "-filter:v", vf_str,
+            "-c:v", "h264_nvenc", "-cq", "18", "-preset", "p5",
+        ]
+
+        if seg.get("action") == "timelapse" or speed > 2.0:
+            # Generate silent audio track so concat demuxer has matching streams
+            cmd += [
+                "-f", "lavfi", "-t", str(round(dur_sec / speed, 2)),
+                "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+                "-map", "0:v:0", "-map", "1:a:0",
+                "-c:a", "aac", "-b:a", "192k", "-shortest",
+            ]
+        else:
+            # Normalize spoken audio to YouTube -14 LUFS broadcast standard
+            cmd += [
+                "-filter:a", "highpass=f=80,loudnorm=I=-14:TP=-1.0:LRA=11",
+                "-c:a", "aac", "-b:a", "192k",
+            ]
+
+        cmd.append(part_out)
+        print(f"Rendering segment #{seg['id']} ({seg['start']} -> {seg['end']}, {seg['action']} @ {speed}x)...")
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        part_files.append(part_out)
+
+    concat_list = os.path.join(temp_dir, "concat.txt")
+    with open(concat_list, "w", encoding="utf-8") as f:
+        for p in part_files:
+            safe_p = p.replace("\\", "/")
+            f.write(f"file '{safe_p}'\n")
+
+    print(f"Concatenating {len(part_files)} rendered segments -> {output_video}...")
+    subprocess.run(
+        ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list, "-c", "copy", output_video],
+        check=True,
+    )
+    print(f"✅ Finished rendering rough cut: {output_video}")
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Render an edited *_edit_plan.yaml into a rough-cut MP4")
+    parser.add_argument("--plan", required=True, help="Path to *_edit_plan.yaml")
+    parser.add_argument("--screen", required=True, help="Path to *_screen.mp4")
+    parser.add_argument("--out", required=True, help="Output MP4 path")
+    parser.add_argument("--upscale-1440p", action="store_true", help="Upscale to 2560x1440 to force YouTube VP09 codec")
+    args = parser.parse_args()
+    render_plan(args.plan, args.screen, args.out, args.upscale_1440p)

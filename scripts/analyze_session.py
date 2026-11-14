@@ -57,6 +57,17 @@ def load_telemetry(jsonl_path: str):
             line = line.strip()
             if line:
                 events.append(json.loads(line))
+
+    # Align telemetry t_ms=0 with the moment OBS created the video file on disk
+    obs_offset_ms = 0
+    for e in events:
+        m = str(e.get("marker") or "")
+        if m.startswith("OBS_FILE_START:"):
+            obs_offset_ms = e.get("t_ms", 0)
+            break
+    if obs_offset_ms > 0:
+        for e in events:
+            e["t_ms"] = max(0, e.get("t_ms", 0) - obs_offset_ms)
     return events
 
 

@@ -16,6 +16,7 @@ import ctypes
 from ctypes import wintypes
 import datetime
 import json
+import os
 import time
 
 
@@ -92,6 +93,12 @@ def record_telemetry(output_path: str, hz: float = 10.0):
 
     f9_was_down = False
     f10_was_down = False
+    watch_dir = os.path.dirname(os.path.abspath(output_path)) or "."
+    existing_media = set(
+        fn for fn in os.listdir(watch_dir)
+        if fn.endswith((".mp4", ".mkv", ".mov"))
+    )
+    synced_media_file = None
 
     with open(output_path, "w", encoding="utf-8") as f:
         try:
@@ -105,6 +112,20 @@ def record_telemetry(output_path: str, hz: float = 10.0):
                 f10_down = is_key_down(VK_F10)
 
                 marker = None
+                if synced_media_file is None:
+                    try:
+                        current_media = set(
+                            fn for fn in os.listdir(watch_dir)
+                            if fn.endswith((".mp4", ".mkv", ".mov"))
+                        )
+                        new_files = current_media - existing_media
+                        if new_files:
+                            synced_media_file = sorted(new_files)[-1]
+                            marker = f"OBS_FILE_START:{synced_media_file}"
+                            print(f"  🎬 [{elapsed_ms / 1000:.2f}s] Locked sync to OBS file: {synced_media_file}")
+                    except Exception:
+                        pass
+
                 if f9_down and not f9_was_down:
                     marker = "HIGHLIGHT"
                     print(f"  ⭐ [{elapsed_ms / 1000:.1f}s] Marked HIGHLIGHT (F9)")

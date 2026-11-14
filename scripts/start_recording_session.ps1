@@ -8,7 +8,8 @@
 param(
     [string]$ProfileName = "ThirdWaveCircuit",
     [string]$Scene = "",
-    [string]$OutputDir = (Join-Path $HOME "Videos\ThirdWaveCircuit\00_Inbox_Raw")
+    [string]$OutputDir = (Join-Path $HOME "Videos\ThirdWaveCircuit\00_Inbox_Raw"),
+    [switch]$AutoStart
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,9 +51,11 @@ $obsDir = Split-Path -Parent $obsExe
 
 $obsArgs = @(
     "--profile", $ProfileName,
-    "--collection", $ProfileName,
-    "--startrecording"
+    "--collection", $ProfileName
 )
+if ($AutoStart) {
+    $obsArgs += "--startrecording"
+}
 if ($Scene) {
     $obsArgs += @("--scene", "`"$Scene`"")
 }

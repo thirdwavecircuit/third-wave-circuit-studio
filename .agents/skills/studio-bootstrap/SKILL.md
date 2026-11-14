@@ -8,7 +8,9 @@ description: >-
 
 # Third Wave Circuit Studio — Dynamic Agent Skill
 
-> **Anti-Drift Rule**: Do **not** rely on hardcoded paths, flags, or static config templates. Always discover the active `third-wave-circuit-studio` repository root and query the scripts directly via `--help` (`-?` for PowerShell).
+> **Anti-Drift & Testing-First Rule**:
+> 1. Do **not** rely on hardcoded paths, flags, or static config templates. Always discover the active `third-wave-circuit-studio` repository root and query the scripts directly via `--help` (`-?` for PowerShell).
+> 2. **Testing First**: Whenever adding or modifying any script or feature in this repository, you **must** add/update unit & regression tests in `tests/` and verify `python3 -m unittest discover -s tests -v` passes 100% before committing.
 
 ## 1. Locate or Clone the Repository (Single Source of Truth)
 

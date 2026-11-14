@@ -10,11 +10,13 @@ Runs OpenAI Whisper locally on the isolated Microphone track (`*_voice.wav`) to 
 import argparse
 import json
 import os
-import whisper
 
 
 def fmt_srt_time(seconds: float) -> str:
     ms = int(round((seconds - int(seconds)) * 1000))
+    if ms == 1000:
+        seconds += 1
+        ms = 0
     total_sec = int(seconds)
     m, s = divmod(total_sec, 60)
     h, m = divmod(m, 60)
@@ -22,6 +24,7 @@ def fmt_srt_time(seconds: float) -> str:
 
 
 def generate_captions(audio_path: str, model_name: str = "base"):
+    import whisper
     print(f"Loading Whisper model '{model_name}'...")
     model = whisper.load_model(model_name)
 

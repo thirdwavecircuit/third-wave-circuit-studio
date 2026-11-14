@@ -10,12 +10,6 @@ import os
 import sys
 import yaml
 
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
-
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube",
@@ -23,6 +17,11 @@ SCOPES = [
 
 
 def get_youtube_client(secrets_file="client_secrets.json", token_file="token.json"):
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+
     creds = None
     if os.path.exists(token_file):
         creds = Credentials.from_authorized_user_file(token_file, SCOPES)
@@ -47,6 +46,8 @@ def render_description(manifest: dict) -> str:
 
 
 def sync_manifest(manifest_path: str, video_file: str = None):
+    from googleapiclient.http import MediaFileUpload
+
     with open(manifest_path, "r", encoding="utf-8") as f:
         manifest = yaml.safe_load(f)
 

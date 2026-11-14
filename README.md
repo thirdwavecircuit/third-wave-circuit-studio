@@ -27,6 +27,10 @@ third-wave-circuit-studio/
 │   ├── sync_video.py                    # Syncs video.yaml manifests to YouTube Studio
 │   ├── fetch_analytics.py               # Pulls channel & per-video performance metrics
 │   └── example_video.yaml               # Declarative video metadata template
+├── tests/                               # Automated Unit, Integration & OPSEC Regression Suite
+│   ├── test_studio_pipeline.py          # Tests OBS generation, WAV voice segmentation, telemetry & SRT
+│   └── test_repo_hygiene.py             # Guards against hardcoded paths, LAN IPs & broken CLI flags
+├── .github/workflows/ci.yml             # GitHub Actions CI runner on every push/PR
 ├── LICENSE                              # MIT License
 └── requirements.txt
 ```

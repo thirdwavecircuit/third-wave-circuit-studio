@@ -33,7 +33,7 @@ class RECT(ctypes.Structure):
     ]
 
 
-user32 = ctypes.windll.user32
+user32 = getattr(ctypes, "windll", None).user32 if hasattr(ctypes, "windll") else None
 
 # Windows Virtual Key Codes
 VK_LBUTTON = 0x01

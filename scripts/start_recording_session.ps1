@@ -15,8 +15,7 @@ $ErrorActionPreference = "Stop"
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = Split-Path -Parent $scriptDir
-$bootstrapScript = Join-Path $repoRoot ".agents\skills\studio-bootstrap\scripts\configure_studio.py"
+$bootstrapScript = Join-Path $scriptDir "configure_studio.py"
 
 $obsProfileDir = Join-Path $env:APPDATA "obs-studio\basic\profiles\$ProfileName"
 if ((-not (Test-Path $obsProfileDir)) -and (Test-Path $bootstrapScript)) {

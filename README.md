@@ -1,6 +1,6 @@
 # ⚡ Third Wave Circuit Studio
 
-**Description:** Open-source synchronized ISO recording, window/cursor telemetry, privacy auditing, media post-processing, and declarative YouTube GitOps automation stack powering the **Third Wave Circuit** channel.
+**Description:** Open-source synchronized ISO recording, hardware auto-discovery, window/cursor telemetry, privacy auditing, media post-processing, and declarative YouTube GitOps automation stack powering the **Third Wave Circuit** channel.
 
 ---
 
@@ -8,15 +8,13 @@
 
 ```text
 third-wave-circuit-studio/
-├── .agents/skills/studio-bootstrap/     # Agent Skill: auto-detects GPU/monitors & configures OBS via CLI
-│   ├── SKILL.md
-│   └── scripts/configure_studio.py
+├── .agents/skills/studio-bootstrap/
+│   └── SKILL.md                         # Dynamic Agent Skill (zero-drift repo & CLI discovery)
 ├── docs/
 │   └── FILMING_AND_EDITING_PLAYBOOK.md  # Audio (-14 LUFS), 1440p VP09 trick, pacing & free tools
-├── obs-profile/                         # Portable OBS profile (3840x1080 ISO canvas, Hybrid MP4, NVENC CQP 18)
-│   ├── basic.ini
-│   └── recordEncoder.json
 ├── scripts/
+│   ├── configure_studio.py              # Auto-detects OS, GPU & monitors -> writes OBS profile & scenes
+│   ├── start_recording_session.ps1      # One-command launcher for OBS (--startrecording) + telemetry
 │   ├── track_context.py                 # 10Hz Window bounds, mouse cursor & F9/F10 marker sidecar logger
 │   ├── audit_privacy.py                 # Pre-edit OPSEC scanner for sensitive window titles in telemetry
 │   ├── split_streams.ps1                # Splits 3840x1080 recording into screen, camera, voice & desktop files
@@ -37,43 +35,36 @@ third-wave-circuit-studio/
 
 ## 🤖 0. One-Command Agent / CLI Bootstrap (Any Computer)
 
-This repository includes an **Agent Skill** (`.agents/skills/studio-bootstrap/`) and a zero-hardcoding hardware discovery script that inspects your OS, GPU encoder (`NVENC`, `AMF`, `QSV`, `VideoToolbox`, or `x264`), and connected display resolutions to generate your OBS Studio profile and scene collection automatically:
+Instead of static, hardcoded config files that drift over time, `scripts/configure_studio.py` dynamically inspects the host OS, GPU hardware encoder (`NVENC`, `AMF`, `QSV`, `VideoToolbox`, or `x264`), and connected display resolutions to generate the OBS Studio profile (`basic.ini`, `recordEncoder.json`), 3-track audio routing, mic filter chain (`RNNoise` → `Compressor` → `Limiter`), and ISO scenes (`scenes.json`):
 
 ```bash
-python .agents/skills/studio-bootstrap/scripts/configure_studio.py
+python scripts/configure_studio.py --help
+python scripts/configure_studio.py
 ```
 
-If you open this repository with an AI coding agent (Antigravity, Claude Code, Cursor), you can simply ask your agent:
-> *"Set up my OBS recording profile for 60fps and put recordings in D:\Recordings"*
-
-and it will use the `studio-bootstrap` skill to configure everything via CLI.
+If you open this repository with an AI coding agent, it will automatically load [.agents/skills/studio-bootstrap/SKILL.md](.agents/skills/studio-bootstrap/SKILL.md) to discover and run all scripts dynamically.
 
 ---
 
 ## 🎥 1. Synchronized ISO Recording + Telemetry Sidecar
 
-Instead of cropping windows live or burning a webcam overlay over your screen pixels, this stack captures **every signal independently and frame-locked**:
+Start both **OBS Studio** (in `3840×1080` side-by-side ISO recording mode) and the **`10 Hz` Window/Cursor/Hotkey Telemetry Sidecar** with a single command:
 
-1. **OBS `3840×1080` Side-by-Side Canvas (`obs-profile/`)**:
-   - **Left Half (`0..1920`)**: Clean full-display `1920×1080` screen capture.
-   - **Right Half (`1920..3840`)**: Clean full-resolution `1920×1080` raw webcam/face output.
-   - **Container**: `hybrid_mp4` (crash-safe like `.mkv`, plus native MP4 chapter marker support).
-   - **Encoder**: `NVIDIA NVENC H.264` (`CQP = 18` — visually lossless, scales bitrate dynamically).
-   - **Multi-Track Audio**:
-     - **Track 1**: Master Mix (Mic + Desktop)
-     - **Track 2**: Microphone Only (isolated for voice activity detection & processing)
-     - **Track 3**: Desktop Audio Only (isolated application audio)
+```powershell
+.\scripts\start_recording_session.ps1
+```
 
-2. **Window, Cursor & Marker Telemetry (`scripts/track_context.py`)**:
-   Run alongside OBS while recording:
-   ```powershell
-   python .\scripts\track_context.py
-   ```
-   Logs a 10Hz `*_telemetry.jsonl` sidecar containing:
-   - Active window title & exact pixel bounding box (`x, y, w, h`) — lets you crop to a single window/tab *after* recording.
-   - Mouse cursor `(x, y)` & click state — enables smooth cursor auto-zoom in post.
-   - **`[F9]` Hotkey**: Drops a timestamped `HIGHLIGHT` marker (great take, bug, key reveal).
-   - **`[F10]` Hotkey**: Drops a timestamped `SECTION` marker (new chapter / build step).
+What gets captured simultaneously and frame-locked:
+- **Left Half (`0..1920`)**: Clean full-display screen capture.
+- **Right Half (`1920..3840`)**: Clean full-resolution raw webcam/face output.
+- **Audio Track 1**: Master Mix (Mic + Desktop)
+- **Audio Track 2**: Microphone Only (isolated with `RNNoise`, `3.5:1 Compressor`, and `-1.0 dB Limiter`)
+- **Audio Track 3**: Desktop Audio Only (isolated application audio)
+- **Telemetry Sidecar (`*_telemetry.jsonl`)**:
+  - Active window title & exact pixel bounding box (`x, y, w, h`) — lets you crop to a single window/tab *after* recording.
+  - Mouse cursor `(x, y)` & click state — enables smooth cursor auto-zoom in post.
+  - **`[F9]` Hotkey**: Drops a timestamped `HIGHLIGHT` marker.
+  - **`[F10]` Hotkey**: Drops a timestamped `SECTION` marker.
 
 ---
 

@@ -247,6 +247,69 @@ class TestStudioPipeline(unittest.TestCase):
         self.assertIn("amix=inputs=2", cmd[fc_index + 1])
         self.assertIn("overlay=main_w-overlay_w-32:main_h-overlay_h-32", cmd[fc_index + 1])
 
+        # If ffmpeg is installed, run a full end-to-end synthetic 3840x1080 3-audio-track split + 1x recompile
+        if recompile_streams.shutil.which("ffmpeg"):
+            with TemporaryDirectory() as tmp:
+                tmp_p = Path(tmp)
+                raw_iso = tmp_p / "synth_iso.mp4"
+                screen_out = tmp_p / "synth_iso_screen.mp4"
+                camera_out = tmp_p / "synth_iso_camera.mp4"
+                voice_out = tmp_p / "synth_iso_voice.wav"
+                desktop_out = tmp_p / "synth_iso_desktop.wav"
+                recompiled_out = tmp_p / "synth_iso_recompiled_1x.mp4"
+
+                # 1. Generate synthetic 1s 3840x1080 video with 3 distinct audio tracks
+                re_cmd = [
+                    "ffmpeg", "-y",
+                    "-f", "lavfi", "-i", "color=c=blue:s=3840x1080:r=30:d=1",
+                    "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=1",
+                    "-f", "lavfi", "-i", "sine=frequency=880:sample_rate=48000:duration=1",
+                    "-f", "lavfi", "-i", "sine=frequency=660:sample_rate=48000:duration=1",
+                    "-map", "0:v:0", "-map", "1:a:0", "-map", "2:a:0", "-map", "3:a:0",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "ultrafast",
+                    "-c:a", "aac",
+                    str(raw_iso),
+                ]
+                recompile_streams.subprocess.run(re_cmd, check=True, stdout=recompile_streams.subprocess.DEVNULL, stderr=recompile_streams.subprocess.DEVNULL)
+
+                # 2. Split into the 4 independent files (_screen, _camera, _voice, _desktop)
+                for crop_expr, a_map, out_f in [
+                    ("crop=1920:1080:0:0", "0:a:0", screen_out),
+                    ("crop=1920:1080:1920:0", "0:a:1", camera_out),
+                ]:
+                    recompile_streams.subprocess.run(
+                        [
+                            "ffmpeg", "-y", "-i", str(raw_iso),
+                            "-map", "0:v:0", "-map", a_map,
+                            "-filter:v", crop_expr,
+                            "-c:v", "libx264", "-preset", "ultrafast",
+                            "-c:a", "aac", str(out_f),
+                        ],
+                        check=True,
+                        stdout=recompile_streams.subprocess.DEVNULL,
+                        stderr=recompile_streams.subprocess.DEVNULL,
+                    )
+                for a_map, out_w in [("0:a:1", voice_out), ("0:a:2", desktop_out)]:
+                    recompile_streams.subprocess.run(
+                        ["ffmpeg", "-y", "-i", str(raw_iso), "-map", a_map, "-c:a", "pcm_s16le", str(out_w)],
+                        check=True,
+                        stdout=recompile_streams.subprocess.DEVNULL,
+                        stderr=recompile_streams.subprocess.DEVNULL,
+                    )
+
+                # 3. Recompile the 4 separated streams into a 1:1 (1x) combined MP4
+                run_cmd = recompile_streams.build_recompile_command(
+                    screen_mp4=str(screen_out),
+                    camera_mp4=str(camera_out),
+                    voice_wav=str(voice_out),
+                    desktop_wav=str(desktop_out),
+                    output_mp4=str(recompiled_out),
+                    v_encoder=["-c:v", "libx264", "-preset", "ultrafast"],
+                )
+                recompile_streams.subprocess.run(run_cmd, check=True, stdout=recompile_streams.subprocess.DEVNULL, stderr=recompile_streams.subprocess.DEVNULL)
+                self.assertTrue(recompiled_out.exists())
+                self.assertGreater(recompiled_out.stat().st_size, 1000)
+
 
 if __name__ == "__main__":
     unittest.main()

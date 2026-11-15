@@ -157,13 +157,28 @@ def matches_any_target(group_name: str, filename: str, targets: list) -> bool:
     return False
 
 
+def is_raw_or_recompiled_asset(file_path: Path) -> bool:
+    """Only include raw capture/split streams (.mp4, .mkv, .mov, .wav, _telemetry.jsonl) and _recompiled_1x.mp4.
+    Excludes post-processing artifacts like _edit_plan.yaml, _roughcut.mp4, _enriched_telemetry.jsonl, and .srt."""
+    name_lower = file_path.name.lower()
+    ext = file_path.suffix.lower()
+
+    if any(excl in name_lower for excl in ("_edit_plan", "_roughcut", "_enriched_telemetry", "_captions")):
+        return False
+
+    if ext in {".mp4", ".mkv", ".mov", ".wav"}:
+        return True
+    if ext == ".jsonl" and name_lower.endswith("_telemetry.jsonl"):
+        return True
+    return False
+
+
 def discover_local_sessions(local_dir: Path) -> dict:
-    valid_exts = {".mp4", ".mkv", ".mov", ".wav", ".jsonl", ".yaml", ".yml", ".srt", ".json"}
     sessions = defaultdict(list)
     if not local_dir.exists():
         return sessions
     for p in sorted(local_dir.iterdir()):
-        if p.is_file() and p.suffix.lower() in valid_exts:
+        if p.is_file() and is_raw_or_recompiled_asset(p):
             group = infer_session_group(p.name, p)
             sessions[group].append(p)
     return dict(sessions)

@@ -33,7 +33,15 @@ class RECT(ctypes.Structure):
     ]
 
 
+class LASTINPUTINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.UINT),
+        ("dwTime", wintypes.DWORD),
+    ]
+
+
 user32 = getattr(ctypes, "windll", None).user32 if hasattr(ctypes, "windll") else None
+kernel32 = getattr(ctypes, "windll", None).kernel32 if hasattr(ctypes, "windll") else None
 
 # Windows Virtual Key Codes
 VK_LBUTTON = 0x01
@@ -50,6 +58,29 @@ def get_cursor_pos():
     pt = POINT()
     user32.GetCursorPos(ctypes.byref(pt))
     return pt.x, pt.y
+
+
+def get_idle_ms() -> int:
+    """Return milliseconds since last keyboard or mouse input (privacy-safe activity signal)."""
+    if not user32 or not kernel32:
+        return 0
+    lii = LASTINPUTINFO()
+    lii.cbSize = ctypes.sizeof(LASTINPUTINFO)
+    if user32.GetLastInputInfo(ctypes.byref(lii)):
+        tick = kernel32.GetTickCount()
+        return max(0, int((tick - lii.dwTime) & 0xFFFFFFFF))
+    return 0
+
+
+def infer_monitor_index(x: int, y: int) -> int:
+    """Return 1 for primary monitor (0..primary_w), 2 for secondary monitor."""
+    if not user32:
+        return 1
+    primary_w = user32.GetSystemMetrics(0)
+    primary_h = user32.GetSystemMetrics(1)
+    if 0 <= x < primary_w and 0 <= y < primary_h:
+        return 1
+    return 2
 
 
 def get_active_window_info():
@@ -136,9 +167,20 @@ def record_telemetry(output_path: str, hz: float = 10.0):
                 f9_was_down = f9_down
                 f10_was_down = f10_down
 
+                idle_ms = get_idle_ms()
+                win_mon = None
+                if win and "rect" in win:
+                    wx = win["rect"]["x"] + (win["rect"]["w"] // 2)
+                    wy = win["rect"]["y"] + (win["rect"]["h"] // 2)
+                    win_mon = infer_monitor_index(wx, wy)
+
                 event = {
                     "t_ms": elapsed_ms,
                     "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "active_monitor": win_mon or infer_monitor_index(cx, cy),
+                    "cursor_monitor": infer_monitor_index(cx, cy),
+                    "is_active_input": idle_ms <= 250,
+                    "idle_ms": idle_ms,
                     "cursor": {
                         "x": cx,
                         "y": cy,

@@ -20,6 +20,13 @@ third-wave-circuit-studio/
 │   ├── track_context.py                 # 10Hz Window/Monitor/Cursor/Input/Marker telemetry logger
 │   ├── split_streams.ps1                # Splits 3840x1080 recording into _screen, _camera, _voice & _desktop
 │   └── recompile_streams.py             # 1:1 (1.0x) sanity-check recompiler from the 4 isolated streams
+├── avatar/                              # OFFLINE AVATAR: 6 Modular Approaches (Hand-Drawn, Rig, Neural & 3DGS)
+│   ├── 01_artist_keyframe_interpolator/ # Hand-drawn pose sheet + TPS / optical-flow / ToonCrafter atlas
+│   ├── 02_mediapipe_layered_rig/        # 52 ARKit blendshapes + voice + telemetry -> 2D puppet / 3D VRM
+│   ├── 03_liveportrait_retargeting/     # Implicit 3D keypoint neural retargeting from _camera.mp4
+│   ├── 04_rvm_ebsynth_stylized/         # RVM alpha matting + stylized shader / EbSynth keyframe paint-over
+│   ├── 05_diffusion_dit_heavy/          # High-VRAM Diffusion Transformers (Hallo3, EchoMimicV2, LatentSync)
+│   └── 06_gaussian_splatting_3dgs/      # FLAME-rigged 3D Gaussian Splatting avatars
 ├── post-processing/                     # PHASE 2: Offline Alignment, Privacy Audit & Composition
 │   ├── audit_privacy.py                 # Pre-edit OPSEC scanner for sensitive window titles in telemetry
 │   ├── analyze_session.py               # Master-clock aligner -> *_enriched_telemetry.jsonl & *_edit_plan.yaml

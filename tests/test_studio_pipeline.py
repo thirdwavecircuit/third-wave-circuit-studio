@@ -10,13 +10,15 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "scripts"))
+sys.path.insert(0, str(REPO_ROOT / "recording"))
+sys.path.insert(0, str(REPO_ROOT / "post-processing"))
 sys.path.insert(0, str(REPO_ROOT / "youtube-gitops"))
 
 import analyze_session
 import audit_privacy
 import auto_captions
 import configure_studio
+import recompile_streams
 import render_roughcut
 import sync_video
 
@@ -219,6 +221,31 @@ class TestStudioPipeline(unittest.TestCase):
         self.assertEqual(crop_str, "crop=1280:720:100:50")
         ox, oy = render_roughcut.compute_overlay_xy("bottom-right", margin=32)
         self.assertIn("main_w-overlay_w-32", ox)
+
+    def test_split_and_recompile_1x_sanity_check_workflow(self):
+        """Regression test verifying split_streams.ps1 maps both video+audio and recompile_streams.py builds a valid 4-input 1x command."""
+        split_ps1 = (REPO_ROOT / "recording" / "split_streams.ps1").read_text(encoding="utf-8")
+        # Must explicitly map 0:v:0 alongside audio stream so video is never dropped
+        self.assertIn("-map 0:v:0 -map 0:a:0", split_ps1)
+        self.assertIn("-map 0:v:0 -map 0:a:1", split_ps1)
+
+        cmd = recompile_streams.build_recompile_command(
+            screen_mp4="test_screen.mp4",
+            camera_mp4="test_camera.mp4",
+            voice_wav="test_voice.wav",
+            desktop_wav="test_desktop.wav",
+            output_mp4="test_recompiled_1x.mp4",
+            pip_width=538,
+            margin=32,
+            v_encoder=["-c:v", "libx264"],
+        )
+        # Verify all 4 inputs precede -filter_complex and output codecs
+        i_indices = [idx for idx, token in enumerate(cmd) if token == "-i"]
+        fc_index = cmd.index("-filter_complex")
+        self.assertEqual(len(i_indices), 4)
+        self.assertTrue(all(idx < fc_index for idx in i_indices))
+        self.assertIn("amix=inputs=2", cmd[fc_index + 1])
+        self.assertIn("overlay=main_w-overlay_w-32:main_h-overlay_h-32", cmd[fc_index + 1])
 
 
 if __name__ == "__main__":

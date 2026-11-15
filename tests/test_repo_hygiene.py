@@ -41,8 +41,12 @@ class TestRepoHygieneAndCLI(unittest.TestCase):
 
     def test_all_python_scripts_compile_and_support_help_flag(self):
         """Verifies every Python script compiles cleanly and responds to `--help` with exit code 0."""
-        py_files = list((REPO_ROOT / "scripts").glob("*.py")) + list((REPO_ROOT / "youtube-gitops").glob("*.py"))
-        self.assertGreaterEqual(len(py_files), 7)
+        py_files = (
+            list((REPO_ROOT / "recording").glob("*.py"))
+            + list((REPO_ROOT / "post-processing").glob("*.py"))
+            + list((REPO_ROOT / "youtube-gitops").glob("*.py"))
+        )
+        self.assertGreaterEqual(len(py_files), 8)
 
         for py_file in py_files:
             py_compile.compile(str(py_file), doraise=True)

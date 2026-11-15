@@ -6,29 +6,33 @@
 
 ## 📦 Architecture & Contents
 
+The repository is cleanly divided into three decoupled stages (**`recording/`** → **`post-processing/`** → **`youtube-gitops/`**):
+
 ```text
 third-wave-circuit-studio/
 ├── .agents/skills/studio-bootstrap/
 │   └── SKILL.md                         # Dynamic Agent Skill (zero-drift repo & CLI discovery)
 ├── docs/
 │   └── FILMING_AND_EDITING_PLAYBOOK.md  # Audio (-14 LUFS), 1440p VP09 trick, pacing & free tools
-├── scripts/
+├── recording/                           # PHASE 1: Raw Multi-Track Data Collection & Stream Extraction
 │   ├── configure_studio.py              # Auto-detects OS, GPU & monitors -> writes OBS profile & scenes
-│   ├── start_recording_session.ps1      # One-command launcher for OBS (--startrecording) + telemetry
-│   ├── track_context.py                 # 10Hz Window bounds, mouse cursor & F9/F10 marker sidecar logger
+│   ├── start_recording_session.ps1      # One-command launcher for OBS + 10Hz telemetry sidecar
+│   ├── track_context.py                 # 10Hz Window/Monitor/Cursor/Input/Marker telemetry logger
+│   ├── split_streams.ps1                # Splits 3840x1080 recording into _screen, _camera, _voice & _desktop
+│   └── recompile_streams.py             # 1:1 (1.0x) sanity-check recompiler from the 4 isolated streams
+├── post-processing/                     # PHASE 2: Offline Alignment, Privacy Audit & Composition
 │   ├── audit_privacy.py                 # Pre-edit OPSEC scanner for sensitive window titles in telemetry
-│   ├── split_streams.ps1                # Splits 3840x1080 recording into screen, camera, voice & desktop files
-│   ├── analyze_session.py               # Combines voice activity + telemetry into an editable *_edit_plan.yaml
-│   ├── render_roughcut.py               # Renders *_edit_plan.yaml with -14 LUFS audio & optional 1440p upscale
+│   ├── analyze_session.py               # Master-clock aligner -> *_enriched_telemetry.jsonl & *_edit_plan.yaml
+│   ├── render_roughcut.py               # Renders *_edit_plan.yaml (PiP avatar, window crop, timelapse, -14 LUFS)
 │   ├── auto_captions.py                 # Local Whisper .srt subtitle & searchable JSON transcript generator
 │   ├── process_recording.ps1            # Remux, NVENC timelapse generator & isolated mic extractor
 │   └── sync_to_shared.ps1               # Multi-threaded robocopy mirror to shared NAS / network storage
-├── youtube-gitops/                      # Declarative YouTube Data API v3 & Analytics v2 pipeline
+├── youtube-gitops/                      # PHASE 3: Declarative YouTube Data API v3 & Analytics v2
 │   ├── sync_video.py                    # Syncs video.yaml manifests to YouTube Studio
 │   ├── fetch_analytics.py               # Pulls channel & per-video performance metrics
 │   └── example_video.yaml               # Declarative video metadata template
-├── tests/                               # Automated Unit, Integration & OPSEC Regression Suite
-│   ├── test_studio_pipeline.py          # Tests OBS generation, WAV voice segmentation, telemetry & SRT
+├── tests/                               # Automated Unit, Regression & OPSEC Hygiene Suite
+│   ├── test_studio_pipeline.py          # Tests OBS config, 4-stream split + 1x recompile, voice/telemetry & SRT
 │   └── test_repo_hygiene.py             # Guards against hardcoded paths, LAN IPs & broken CLI flags
 ├── .github/workflows/ci.yml             # GitHub Actions CI runner on every push/PR
 ├── LICENSE                              # MIT License
@@ -39,23 +43,30 @@ third-wave-circuit-studio/
 
 ## 🤖 0. One-Command Agent / CLI Bootstrap (Any Computer)
 
-Instead of static, hardcoded config files that drift over time, `scripts/configure_studio.py` dynamically inspects the host OS, GPU hardware encoder (`NVENC`, `AMF`, `QSV`, `VideoToolbox`, or `x264`), and connected display resolutions to generate the OBS Studio profile (`basic.ini`, `recordEncoder.json`), 3-track audio routing, mic filter chain (`RNNoise` → `Compressor` → `Limiter`), and ISO scenes (`scenes.json`):
+Instead of static, hardcoded config files that drift over time, `recording/configure_studio.py` dynamically inspects the host OS, GPU hardware encoder (`NVENC`, `AMF`, `QSV`, `VideoToolbox`, or `x264`), and connected display resolutions to generate the OBS Studio profile (`basic.ini`, `recordEncoder.json`), 3-track audio routing, mic filter chain (`RNNoise` → `Compressor` → `Limiter`), and ISO scenes (`scenes.json`):
 
 ```bash
-python scripts/configure_studio.py --help
-python scripts/configure_studio.py
+python recording/configure_studio.py --help
+python recording/configure_studio.py
 ```
 
 If you open this repository with an AI coding agent, it will automatically load [.agents/skills/studio-bootstrap/SKILL.md](.agents/skills/studio-bootstrap/SKILL.md) to discover and run all scripts dynamically.
 
 ---
 
-## 🎥 1. Phase 1: Raw Multi-Track Data Collection (Shared Master Clock)
+## 🎥 1. Phase 1: Raw Multi-Track Data Collection (`recording/`)
 
 Instead of baking overlays or running GPU-heavy AI avatars live during recording, OBS Studio and `track_context.py` operate strictly as **synchronized raw multi-track sensors** locked to a single master clock (`OBS_FILE_START` aligns `t_ms = 0`):
 
 ```powershell
-.\scripts\start_recording_session.ps1
+# 1. Start OBS Studio + 10Hz Telemetry Sidecar
+.\recording\start_recording_session.ps1
+
+# 2. Split the 3840x1080 capture into 4 standalone files (_screen.mp4, _camera.mp4, _voice.wav, _desktop.wav)
+.\recording\split_streams.ps1 -InputFile "session.mp4"
+
+# 3. (Sanity Check) Recompile the 4 separated files at 1:1 (1.0x) original speed to verify zero drift/loss
+python .\recording\recompile_streams.py --base "session"
 ```
 
 What gets captured simultaneously and independently:
@@ -74,32 +85,29 @@ What gets captured simultaneously and independently:
 
 ---
 
-## 🛠️ 2. Phase 2: Offline Master-Clock Alignment & Layout Composition (`scripts/`)
+## 🛠️ 2. Phase 2: Offline Master-Clock Alignment & Layout Composition (`post-processing/`)
 
 ```powershell
 # 1. Audit telemetry for any accidental sensitive windows (.env, passwords, email, chats)
-python .\scripts\audit_privacy.py --telemetry "session_telemetry.jsonl"
+python .\post-processing\audit_privacy.py --telemetry "session_telemetry.jsonl"
 
-# 2. Split the 3840x1080 recording into 4 frame-locked files (_screen.mp4, _camera.mp4, _voice.wav, _desktop.wav)
-.\scripts\split_streams.ps1 -InputFile "session.mp4"
-
-# 3. Merge voice activity (is_speaking, voice_db) onto the 10Hz telemetry (*_enriched_telemetry.jsonl)
+# 2. Merge voice activity (is_speaking, voice_db) onto the 10Hz telemetry (*_enriched_telemetry.jsonl)
 #    and generate a declarative *_edit_plan.yaml with active_monitor, window bounds & avatar_overlay config
-python .\scripts\analyze_session.py --voice "session_voice.wav" --telemetry "session_telemetry.jsonl"
+python .\post-processing\analyze_session.py --voice "session_voice.wav" --telemetry "session_telemetry.jsonl"
 
-# 4. (Optional) Compose & render rough cut from your YAML plan (layers offline avatar PiP, crops to active_window, -14 LUFS & 1440p VP09)
-python .\scripts\render_roughcut.py --plan "session_edit_plan.yaml" --screen "session_screen.mp4" --avatar "session_camera.mp4" --out "roughcut.mp4" --upscale-1440p
+# 3. Compose & render rough cut from your YAML plan (layers offline avatar PiP, crops to active_window, -14 LUFS & 1440p VP09)
+python .\post-processing\render_roughcut.py --plan "session_edit_plan.yaml" --screen "session_screen.mp4" --avatar "session_camera.mp4" --out "roughcut.mp4" --upscale-1440p
 
-# 5. Generate local .srt subtitles and searchable word transcript via Whisper
-python .\scripts\auto_captions.py --voice "session_voice.wav" --model base
+# 4. Generate local .srt subtitles and searchable word transcript via Whisper
+python .\post-processing\auto_captions.py --voice "session_voice.wav" --model base
 
-# 6. Sync completed recordings & project assets to shared network storage
-.\scripts\sync_to_shared.ps1 -SharedPath "\\nas.local\media\ThirdWaveCircuit"
+# 5. Sync completed recordings & project assets to shared network storage
+.\post-processing\sync_to_shared.ps1 -SharedPath "\\nas.local\media\ThirdWaveCircuit"
 ```
 
 ---
 
-## 🚀 3. Declarative YouTube GitOps (`youtube-gitops/`)
+## 🚀 3. Phase 3: Declarative YouTube GitOps (`youtube-gitops/`)
 
 Manage video titles, descriptions, links, tags, thumbnails, and chapter timestamps as code via `video.yaml`:
 

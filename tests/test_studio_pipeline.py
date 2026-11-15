@@ -64,6 +64,7 @@ class TestStudioPipeline(unittest.TestCase):
         ]
         scenes_2 = configure_studio.build_scenes_json("TestProf", dual)
         self.assertEqual(len(scenes_2["scene_order"]), 3)
+        self.assertEqual(scenes_2["current_scene"], "ISO: Display 2 (2560x1440) + Camera")
         self.assertIn("ISO: Dual Monitors (Display 1 + Display 2)", [s["name"] for s in scenes_2["scene_order"]])
 
     def test_bootstrap_studio_writes_all_obs_configs(self):
@@ -114,20 +115,56 @@ class TestStudioPipeline(unittest.TestCase):
             create_synthetic_wav(wav_path, segments=((1.5, True), (4.0, False), (1.5, True)))
 
             events = [
-                {"t_ms": 500, "window": {"title": "VS Code"}, "marker": "HIGHLIGHT"},
-                {"t_ms": 3000, "window": {"title": "Blender"}, "marker": None},
-                {"t_ms": 6000, "window": {"title": "VS Code"}, "marker": "SECTION"},
+                {
+                    "t_ms": 500,
+                    "active_monitor": 2,
+                    "is_active_input": True,
+                    "cursor": {"x": 2200, "y": 400, "lmb": True, "rmb": False},
+                    "window": {"title": "VS Code", "rect": {"x": 1920, "y": 0, "w": 1600, "h": 1000}},
+                    "marker": "HIGHLIGHT",
+                },
+                {
+                    "t_ms": 3000,
+                    "active_monitor": 2,
+                    "is_active_input": True,
+                    "cursor": {"x": 2400, "y": 500, "lmb": False, "rmb": False},
+                    "window": {"title": "Blender", "rect": {"x": 1920, "y": 0, "w": 2560, "h": 1440}},
+                    "marker": None,
+                },
+                {
+                    "t_ms": 6000,
+                    "active_monitor": 1,
+                    "is_active_input": False,
+                    "cursor": {"x": 500, "y": 500, "lmb": False, "rmb": False},
+                    "window": {"title": "VS Code", "rect": {"x": 0, "y": 0, "w": 1920, "h": 1080}},
+                    "marker": "SECTION",
+                },
             ]
             tel_path.write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+            enriched_path = Path(tmp) / "session_enriched_telemetry.jsonl"
 
-            plan = analyze_session.build_edit_plan(str(wav_path), str(tel_path), min_silence_sec=3.0)
+            plan = analyze_session.build_edit_plan(
+                str(wav_path),
+                str(tel_path),
+                min_silence_sec=3.0,
+                enriched_telemetry_out=str(enriched_path),
+            )
             self.assertEqual(len(plan["segments"]), 3)
+            self.assertTrue(enriched_path.exists())
+            enriched_rows = [json.loads(line) for line in enriched_path.read_text(encoding="utf-8").splitlines()]
+            self.assertTrue(enriched_rows[0]["is_speaking"])
+            self.assertFalse(enriched_rows[1]["is_speaking"])
 
             # Segment 1: Speech
             self.assertTrue(plan["segments"][0]["voice_active"])
+            self.assertEqual(plan["segments"][0]["active_monitor"], 2)
+            self.assertTrue(plan["segments"][0]["is_active_input"])
+            self.assertEqual(plan["segments"][0]["click_ticks"], 1)
             self.assertEqual(plan["segments"][0]["action"], "keep")
             self.assertEqual(plan["segments"][0]["speed"], 1.0)
             self.assertEqual(plan["segments"][0]["dominant_window"], "VS Code")
+            self.assertEqual(plan["segments"][0]["dominant_window_rect"]["w"], 1600)
+            self.assertTrue(plan["segments"][0]["avatar_overlay"]["enabled"])
 
             # Segment 2: Silent drawing/coding -> Timelapse
             self.assertFalse(plan["segments"][1]["voice_active"])
@@ -177,6 +214,11 @@ class TestStudioPipeline(unittest.TestCase):
         self.assertIn("Hello world", desc)
         self.assertIn("00:00 Intro", desc)
         self.assertIn("02:15 Build", desc)
+
+        crop_str = render_roughcut.build_crop_filter({"x": 100, "y": 50, "w": 1281, "h": 721})
+        self.assertEqual(crop_str, "crop=1280:720:100:50")
+        ox, oy = render_roughcut.compute_overlay_xy("bottom-right", margin=32)
+        self.assertIn("main_w-overlay_w-32", ox)
 
 
 if __name__ == "__main__":

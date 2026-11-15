@@ -60,7 +60,7 @@ def detect_gpu_encoder() -> str:
 
 
 def get_windows_monitor_interface_id(device_name: str) -> str:
-    """Queries Win32 EnumDisplayDevicesW with EDD_GET_DEVICE_INTERFACE_NAME (0x1)
+    r"""Queries Win32 EnumDisplayDevicesW with EDD_GET_DEVICE_INTERFACE_NAME (0x1)
     to retrieve the exact \\?\DISPLAY#... monitor_id string required by OBS 30+."""
     try:
         import ctypes
@@ -212,7 +212,9 @@ def build_scenes_json(profile_name: str, displays: list) -> dict:
             },
         })
 
-    default_scene = scene_order[0]["name"]
+    # Default to the highest-resolution display scene (typically the primary working monitor)
+    best_display_idx = max(range(len(displays)), key=lambda i: displays[i]["width"] * displays[i]["height"])
+    default_scene = scene_order[best_display_idx]["name"]
     audio_out_id = "wasapi_output_capture" if platform.system() == "Windows" else "pulse_output_capture"
     audio_in_id = "wasapi_input_capture" if platform.system() == "Windows" else "pulse_input_capture"
 

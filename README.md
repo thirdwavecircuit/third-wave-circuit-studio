@@ -50,29 +50,31 @@ If you open this repository with an AI coding agent, it will automatically load 
 
 ---
 
-## 🎥 1. Synchronized ISO Recording + Telemetry Sidecar
+## 🎥 1. Phase 1: Raw Multi-Track Data Collection (Shared Master Clock)
 
-Start both **OBS Studio** (in `3840×1080` side-by-side ISO recording mode) and the **`10 Hz` Window/Cursor/Hotkey Telemetry Sidecar** with a single command:
+Instead of baking overlays or running GPU-heavy AI avatars live during recording, OBS Studio and `track_context.py` operate strictly as **synchronized raw multi-track sensors** locked to a single master clock (`OBS_FILE_START` aligns `t_ms = 0`):
 
 ```powershell
 .\scripts\start_recording_session.ps1
 ```
 
-What gets captured simultaneously and frame-locked:
-- **Left Half (`0..1920`)**: Clean full-display screen capture.
-- **Right Half (`1920..3840`)**: Clean full-resolution raw webcam/face output.
+What gets captured simultaneously and independently:
+- **Left Half (`0..1920`)**: Clean full-display screen capture (defaults to your highest-resolution working monitor).
+- **Right Half (`1920..3840`)**: Clean full-resolution raw webcam/face output (used in post to drive offline AI avatar generation or PiP).
 - **Audio Track 1**: Master Mix (Mic + Desktop)
 - **Audio Track 2**: Microphone Only (isolated with `RNNoise`, `3.5:1 Compressor`, and `-1.0 dB Limiter`)
 - **Audio Track 3**: Desktop Audio Only (isolated application audio)
-- **Telemetry Sidecar (`*_telemetry.jsonl`)**:
-  - Active window title & exact pixel bounding box (`x, y, w, h`) — lets you crop to a single window/tab *after* recording.
-  - Mouse cursor `(x, y)` & click state — enables smooth cursor auto-zoom in post.
+- **10Hz Telemetry Sidecar (`*_telemetry.jsonl`)**:
+  - `active_monitor` & `cursor_monitor` (`1` or `2`) — tracks which monitor you are working on at every 100ms tick.
+  - `is_active_input` & `idle_ms` — privacy-safe keyboard/mouse activity signal (via `GetLastInputInfo`, zero keylogging).
+  - `window` (`title`, `rect: {x, y, w, h}`) — lets post-processing crop to a specific window/IDE tab *after* recording.
+  - `cursor` (`x, y, lmb, rmb`) — enables smooth cursor auto-zoom and click-triggered zooms in post.
   - **`[F9]` Hotkey**: Drops a timestamped `HIGHLIGHT` marker.
   - **`[F10]` Hotkey**: Drops a timestamped `SECTION` marker.
 
 ---
 
-## 🛠️ 2. Post-Processing, Privacy Audit & Editable Timeline (`scripts/`)
+## 🛠️ 2. Phase 2: Offline Master-Clock Alignment & Layout Composition (`scripts/`)
 
 ```powershell
 # 1. Audit telemetry for any accidental sensitive windows (.env, passwords, email, chats)
@@ -81,11 +83,12 @@ python .\scripts\audit_privacy.py --telemetry "session_telemetry.jsonl"
 # 2. Split the 3840x1080 recording into 4 frame-locked files (_screen.mp4, _camera.mp4, _voice.wav, _desktop.wav)
 .\scripts\split_streams.ps1 -InputFile "session.mp4"
 
-# 3. Analyze isolated voice + window telemetry into an editable YAML edit plan (non-destructive!)
+# 3. Merge voice activity (is_speaking, voice_db) onto the 10Hz telemetry (*_enriched_telemetry.jsonl)
+#    and generate a declarative *_edit_plan.yaml with active_monitor, window bounds & avatar_overlay config
 python .\scripts\analyze_session.py --voice "session_voice.wav" --telemetry "session_telemetry.jsonl"
 
-# 4. (Optional) Render rough cut from your reviewed YAML plan (-14 LUFS normalized + 1440p VP09 upscale)
-python .\scripts\render_roughcut.py --plan "session_edit_plan.yaml" --screen "session_screen.mp4" --out "roughcut.mp4" --upscale-1440p
+# 4. (Optional) Compose & render rough cut from your YAML plan (layers offline avatar PiP, crops to active_window, -14 LUFS & 1440p VP09)
+python .\scripts\render_roughcut.py --plan "session_edit_plan.yaml" --screen "session_screen.mp4" --avatar "session_camera.mp4" --out "roughcut.mp4" --upscale-1440p
 
 # 5. Generate local .srt subtitles and searchable word transcript via Whisper
 python .\scripts\auto_captions.py --voice "session_voice.wav" --model base

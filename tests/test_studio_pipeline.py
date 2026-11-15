@@ -12,6 +12,7 @@ from unittest.mock import patch
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "recording"))
 sys.path.insert(0, str(REPO_ROOT / "post-processing"))
+sys.path.insert(0, str(REPO_ROOT / "devops"))
 sys.path.insert(0, str(REPO_ROOT / "youtube-gitops"))
 
 import analyze_session
@@ -20,6 +21,7 @@ import auto_captions
 import configure_studio
 import recompile_streams
 import render_roughcut
+import sync_drive_recordings
 import sync_video
 
 
@@ -309,6 +311,20 @@ class TestStudioPipeline(unittest.TestCase):
                 recompile_streams.subprocess.run(run_cmd, check=True, stdout=recompile_streams.subprocess.DEVNULL, stderr=recompile_streams.subprocess.DEVNULL)
                 self.assertTrue(recompiled_out.exists())
                 self.assertGreater(recompiled_out.stat().st_size, 1000)
+
+    def test_devops_drive_session_grouping_and_md5(self):
+        self.assertEqual(
+            sync_drive_recordings.infer_session_group("2026-11-15 15-12-06_screen.mp4"),
+            "session_2026-11-15_15-12-06",
+        )
+        self.assertEqual(
+            sync_drive_recordings.infer_session_group("session_2026-11-15_14-40-30_telemetry.jsonl"),
+            "session_2026-11-15_14-40-30",
+        )
+        with TemporaryDirectory() as tmp:
+            sample = Path(tmp) / "test.bin"
+            sample.write_bytes(b"third-wave-circuit")
+            self.assertEqual(len(sync_drive_recordings.compute_md5(sample)), 32)
 
 
 if __name__ == "__main__":

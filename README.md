@@ -25,9 +25,11 @@ third-wave-circuit-studio/
 │   ├── analyze_session.py               # Master-clock aligner -> *_enriched_telemetry.jsonl & *_edit_plan.yaml
 │   ├── render_roughcut.py               # Renders *_edit_plan.yaml (PiP avatar, window crop, timelapse, -14 LUFS)
 │   ├── auto_captions.py                 # Local Whisper .srt subtitle & searchable JSON transcript generator
-│   ├── process_recording.ps1            # Remux, NVENC timelapse generator & isolated mic extractor
+│   └── process_recording.ps1            # Remux, NVENC timelapse generator & isolated mic extractor
+├── devops/                              # PHASE 3: Multi-Machine Cloud Sync (Desktop <-> Home Server)
+│   ├── sync_drive_recordings.py         # MD5-verified Google Drive push/pull under 12 Media/Uploads/recordings
 │   └── sync_to_shared.ps1               # Multi-threaded robocopy mirror to shared NAS / network storage
-├── youtube-gitops/                      # PHASE 3: Declarative YouTube Data API v3 & Analytics v2
+├── youtube-gitops/                      # PHASE 4: Declarative YouTube Data API v3 & Analytics v2
 │   ├── sync_video.py                    # Syncs video.yaml manifests to YouTube Studio
 │   ├── fetch_analytics.py               # Pulls channel & per-video performance metrics
 │   └── example_video.yaml               # Declarative video metadata template
@@ -100,14 +102,28 @@ python .\post-processing\render_roughcut.py --plan "session_edit_plan.yaml" --sc
 
 # 4. Generate local .srt subtitles and searchable word transcript via Whisper
 python .\post-processing\auto_captions.py --voice "session_voice.wav" --model base
-
-# 5. Sync completed recordings & project assets to shared network storage
-.\post-processing\sync_to_shared.ps1 -SharedPath "\\nas.local\media\ThirdWaveCircuit"
 ```
 
 ---
 
-## 🚀 3. Phase 3: Declarative YouTube GitOps (`youtube-gitops/`)
+## ☁️ 3. Phase 3: Multi-Machine Cloud Handoff (`devops/`)
+
+Push raw & split session components from your recording Desktop PC to Google Drive (`12 Media/Uploads/recordings/<session_id>/`), and pull them onto your Home Server for heavy offline post-processing:
+
+```powershell
+# On Desktop PC: Push all (or a specific) recording session to Google Drive with MD5 verification
+python .\devops\sync_drive_recordings.py --action push --drive-path "12 Media/Uploads/recordings"
+
+# On Home Server: Pull recording sessions from Google Drive for post-processing
+python ./devops/sync_drive_recordings.py --action pull --drive-path "12 Media/Uploads/recordings" --local-dir ~/recordings
+
+# Optional LAN/NAS sync
+.\devops\sync_to_shared.ps1 -SharedPath "\\nas.local\media\ThirdWaveCircuit"
+```
+
+---
+
+## 🚀 4. Phase 4: Declarative YouTube GitOps (`youtube-gitops/`)
 
 Manage video titles, descriptions, links, tags, thumbnails, and chapter timestamps as code via `video.yaml`:
 

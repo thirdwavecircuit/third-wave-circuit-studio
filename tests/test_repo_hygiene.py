@@ -44,9 +44,10 @@ class TestRepoHygieneAndCLI(unittest.TestCase):
         py_files = (
             list((REPO_ROOT / "recording").glob("*.py"))
             + list((REPO_ROOT / "post-processing").glob("*.py"))
+            + list((REPO_ROOT / "devops").glob("*.py"))
             + list((REPO_ROOT / "youtube-gitops").glob("*.py"))
         )
-        self.assertGreaterEqual(len(py_files), 8)
+        self.assertGreaterEqual(len(py_files), 9)
 
         for py_file in py_files:
             py_compile.compile(str(py_file), doraise=True)

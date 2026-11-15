@@ -43,6 +43,9 @@ Rather than assuming hardcoded flags or parameters, discover available tools and
   - `post-processing/audit_privacy.py`: Scans `*_telemetry.jsonl` for accidental sensitive window titles.
   - `post-processing/analyze_session.py`: Aligns voice + telemetry onto the shared `OBS_FILE_START` master clock (`*_enriched_telemetry.jsonl`) and generates `*_edit_plan.yaml`.
   - `post-processing/render_roughcut.py`: Renders `*_edit_plan.yaml` (offline avatar PiP overlay, active window crop, timelapse speed-ramping, `-14 LUFS`, `1440p` VP09 upscale).
-  - `post-processing/auto_captions.py` & `post-processing/sync_to_shared.ps1`.
-- **Phase 3 — Declarative YouTube GitOps (`youtube-gitops/`)**:
+  - `post-processing/auto_captions.py`.
+- **Phase 3 — Multi-Machine Cloud & Storage Sync (`devops/`)**:
+  - `devops/sync_drive_recordings.py`: Pushes (`--action push`) or pulls (`--action pull`) raw & split recording components via Google Drive (`12 Media/Uploads/recordings/<session>/`) with MD5 verification so post-processing can run on either the desktop or a home server.
+  - `devops/sync_to_shared.ps1`: Syncs recordings to LAN/NAS storage.
+- **Phase 4 — Declarative YouTube GitOps (`youtube-gitops/`)**:
   - `youtube-gitops/sync_video.py` & `youtube-gitops/fetch_analytics.py`.

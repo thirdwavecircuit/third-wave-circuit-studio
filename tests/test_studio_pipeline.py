@@ -326,6 +326,22 @@ class TestStudioPipeline(unittest.TestCase):
             sample.write_bytes(b"third-wave-circuit")
             self.assertEqual(len(sync_drive_recordings.compute_md5(sample)), 32)
 
+            # Verify OBS_FILE_START inside telemetry .jsonl links it to the video's session folder
+            tel = Path(tmp) / "session_2026-11-15_14-40-30_telemetry.jsonl"
+            tel.write_text('{"t_ms": 100, "marker": "OBS_FILE_START:2026-11-15 14-51-28.mp4"}\n', encoding="utf-8")
+            self.assertEqual(
+                sync_drive_recordings.infer_session_group(tel.name, tel),
+                "session_2026-11-15_14-51-28",
+            )
+
+            # Verify manifest & CLI selection list filtering
+            manifest = Path(tmp) / "upload_targets.txt"
+            manifest.write_text("# Only upload second test\n- 2026-11-15_15-12-06\n", encoding="utf-8")
+            targets = sync_drive_recordings.parse_selection_list(["14-51-28"], str(manifest))
+            self.assertEqual(targets, ["14-51-28", "2026-11-15_15-12-06"])
+            self.assertTrue(sync_drive_recordings.matches_any_target("session_2026-11-15_15-12-06", "foo.mp4", targets))
+            self.assertFalse(sync_drive_recordings.matches_any_target("session_2026-11-15_14-09-34", "bar.jsonl", targets))
+
 
 if __name__ == "__main__":
     unittest.main()

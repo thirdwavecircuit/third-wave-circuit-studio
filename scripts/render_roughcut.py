@@ -115,6 +115,8 @@ def render_plan(
             and seg.get("show_avatar", overlay_cfg.get("enabled", False))
         )
 
+        is_timelapse = seg.get("action") == "timelapse" or speed > 2.0
+
         cmd = [
             "ffmpeg", "-y",
             "-ss", str(start_sec),
@@ -124,6 +126,15 @@ def render_plan(
 
         if use_avatar:
             cmd += ["-ss", str(start_sec), "-t", str(dur_sec), "-i", avatar_video]
+
+        if is_timelapse:
+            cmd += [
+                "-f", "lavfi",
+                "-t", str(max(0.1, round(dur_sec / speed, 2))),
+                "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
+            ]
+
+        if use_avatar:
             scale_ratio = float(overlay_cfg.get("scale", 0.28))
             pip_w = int(target_w * scale_ratio)
             pip_w -= pip_w % 2
@@ -137,28 +148,19 @@ def render_plan(
             )
             cmd += ["-filter_complex", filter_complex, "-map", "[vout]"]
         else:
-            cmd += ["-filter:v", ",".join(v_filters)]
+            cmd += ["-filter:v", ",".join(v_filters), "-map", "0:v:0"]
 
         cmd += v_enc
 
-        if seg.get("action") == "timelapse" or speed > 2.0:
-            # Generate silent audio track so concat demuxer has matching streams
+        if is_timelapse:
             anull_idx = 2 if use_avatar else 1
-            cmd += [
-                "-f", "lavfi", "-t", str(round(dur_sec / speed, 2)),
-                "-i", "anullsrc=channel_layout=stereo:sample_rate=48000",
-            ]
-            if not use_avatar:
-                cmd += ["-map", "0:v:0"]
             cmd += [
                 "-map", f"{anull_idx}:a:0",
                 "-c:a", "aac", "-b:a", "192k", "-shortest",
             ]
         else:
-            if use_avatar:
-                cmd += ["-map", "0:a:0"]
-            # Normalize spoken audio to YouTube -14 LUFS broadcast standard
             cmd += [
+                "-map", "0:a:0",
                 "-filter:a", "highpass=f=80,loudnorm=I=-14:TP=-1.0:LRA=11",
                 "-c:a", "aac", "-b:a", "192k",
             ]

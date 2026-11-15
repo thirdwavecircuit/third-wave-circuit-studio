@@ -179,7 +179,7 @@ def render_plan(
         ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list, "-c", "copy", output_video],
         check=True,
     )
-    print(f"✅ Finished rendering rough cut: {output_video}")
+    print(f"[OK] Finished rendering rough cut: {output_video}")
 
 
 if __name__ == "__main__":

@@ -71,10 +71,10 @@ def audit_telemetry(jsonl_path: str, extra_patterns=None):
                     })
 
     if not alerts:
-        print("✅ Privacy Audit PASSED: No sensitive window titles detected in telemetry.")
+        print("[OK] Privacy Audit PASSED: No sensitive window titles detected in telemetry.")
         return 0
 
-    print(f"⚠️  Privacy Audit WARNING: Found {len(alerts)} sensitive window interval(s):")
+    print(f"[WARN] Privacy Audit WARNING: Found {len(alerts)} sensitive window interval(s):")
     for idx, a in enumerate(alerts, 1):
         start_str = fmt_time(a["start_ms"])
         end_str = fmt_time(a["end_ms"])

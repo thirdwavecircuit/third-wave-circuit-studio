@@ -153,16 +153,16 @@ def record_telemetry(output_path: str, hz: float = 10.0):
                         if new_files:
                             synced_media_file = sorted(new_files)[-1]
                             marker = f"OBS_FILE_START:{synced_media_file}"
-                            print(f"  🎬 [{elapsed_ms / 1000:.2f}s] Locked sync to OBS file: {synced_media_file}")
+                            print(f"  [SYNC] [{elapsed_ms / 1000:.2f}s] Locked sync to OBS file: {synced_media_file}")
                     except Exception:
                         pass
 
                 if f9_down and not f9_was_down:
                     marker = "HIGHLIGHT"
-                    print(f"  ⭐ [{elapsed_ms / 1000:.1f}s] Marked HIGHLIGHT (F9)")
+                    print(f"  [HIGHLIGHT] [{elapsed_ms / 1000:.1f}s] Marked HIGHLIGHT (F9)")
                 elif f10_down and not f10_was_down:
                     marker = "SECTION"
-                    print(f"  📌 [{elapsed_ms / 1000:.1f}s] Marked SECTION (F10)")
+                    print(f"  [SECTION] [{elapsed_ms / 1000:.1f}s] Marked SECTION (F10)")
 
                 f9_was_down = f9_down
                 f10_was_down = f10_down

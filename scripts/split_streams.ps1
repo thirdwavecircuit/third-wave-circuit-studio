@@ -36,10 +36,10 @@ if ($encoders -match "h264_nvenc") {
 }
 
 Write-Host "1/4 Extracting Left ${TileWidth}x${TileHeight} -> $screenOut ..."
-ffmpeg -y -i $InputFile -filter:v "crop=${TileWidth}:${TileHeight}:0:0" @vCodec -map 0:a:0 -c:a aac -b:a 192k $screenOut
+ffmpeg -y -i $InputFile -map 0:v:0 -map 0:a:0 -filter:v "crop=${TileWidth}:${TileHeight}:0:0" @vCodec -c:a aac -b:a 192k $screenOut
 
 Write-Host "2/4 Extracting Right ${TileWidth}x${TileHeight} (Raw Camera) -> $cameraOut ..."
-ffmpeg -y -i $InputFile -filter:v "crop=${TileWidth}:${TileHeight}:${TileWidth}:0" @vCodec -map 0:a:1 -c:a aac -b:a 192k $cameraOut
+ffmpeg -y -i $InputFile -map 0:v:0 -map 0:a:1 -filter:v "crop=${TileWidth}:${TileHeight}:${TileWidth}:0" @vCodec -c:a aac -b:a 192k $cameraOut
 
 Write-Host "3/4 Extracting Isolated Voice (Track 2) -> $voiceOut ..."
 ffmpeg -y -i $InputFile -map 0:a:1 -c:a pcm_s16le $voiceOut
